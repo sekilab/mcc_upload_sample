@@ -1,0 +1,132 @@
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyCityConstruction Multipart Upload Sample</title>
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script> 
+  <script src="./upload.js"></script> 
+</head>
+<body>
+  <div class="container">
+    <h2>MyCityConstruction Multipart Upload Sample</h2>
+    <div class="panel panel-success">
+      <div class="panel-heading">
+        <span>フォルダ(複数ファイル)アップロード</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-group">
+          <div>
+            <label>APIキー：</label>
+            <input id="api_key" class="form-control" type="text" />
+          </div>
+          <div>
+            <label>工事・業務データid：</label>
+            <input id="product_id" class="form-control" type="number" />
+          </div>
+          <label>アップロードフォルダ選択：</label>
+          <input id="folder" name="files[]" type="file" multiple webkitdirectory/>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>id</th>
+            <th>ファイル名</th>
+            <th>進捗</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody class="upload-file-table">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+<script>
+  $(function(){
+    $("#folder").on("change", function (){
+      var upload_count = 0;
+      var handlers = [];
+      uploader = new Mcc.uploader({
+        filesElement: $("#folder"),
+        productId: $("#product_id").val(),
+        apiKey: $("#api_key").val(),
+        callbacks: {
+          onUploadInitialized: function(id) {
+            console.log('id:' + id + ' uploadInitialized.');
+          },
+          onUploadStarted: function(id) {
+            console.log('id:' + id + ' uploadStarted.');
+          },
+          onUploadCompleted: function(id) {
+            console.log('id:' + id + ' uploadCompleted.');
+            $(".uploadFile-" + id).addClass('progress-bar-success');
+            $(".uploadFile-" + id).removeClass('active');
+            $(".uploadFile-" + id).css('width','100%');
+            $(".abortFile-" + id).addClass("disabled");
+          },
+          onUploadAborted: function(id) {
+            console.log('id:' + id + ' uploadAborted.');
+            $(".uploadFile-" + id).removeClass('active');
+            $(".uploadFile-" + id).addClass('progress-bar-danger');
+            $(".abortFile-" + id).addClass("disabled");
+          },
+          onUploadFailed: function(id, data) {
+            console.log('id:' + id + ' uploadFailed.');
+            $(".uploadFile-" + id).removeClass('active');
+            $(".uploadFile-" + id).addClass('progress-bar-danger');
+            $(".abortFile-" + id).addClass("disabled");
+          },
+          onUploadFinished: function(id, data) {
+            console.log('id:' + id + ' uploadFinished.');
+            upload_count++;
+            // 次のアップロードを開始します
+            if (upload_count < handlers.length){
+              uploader.upload(handlers[upload_count].id);
+            }
+          },
+          onProgress: function(id, current, total) {
+            console.log('id:' + id + ' progress:' +current + '/' + total);
+            var progress = (current / total) * 100.0;
+            $(".uploadFile-" + id).css('width', progress + '%');
+          }
+        }
+      });
+      // getHandersでアップロードするファイルに関する情報が配列で返却されます。
+      handlers = uploader.getHandlers();
+      for (var i in handlers) {
+        createUploadDom(handlers[i], uploader);
+      }
+      // アップロードをシーケンシャルに行います。
+      uploader.upload(handlers[upload_count].id);
+      return false;
+    });
+  });
+
+  function createUploadDom(uploadFile, uploader) {
+    var $td_id = $('<td>').text(uploadFile.id);
+    var $td_name = $('<td>').text(uploadFile.name);
+    
+    var $progress = $("<div class='progress'>");
+    var $progress_bar = $("<div class='progress-bar progress-bar-striped active uploadFile-" + uploadFile.id + "' role='progressbar' style='width: 0%;'>");
+    $progress.append($progress_bar);
+    var $td_progress = $('<td>').append($progress);
+
+    var $abort_button = $("<a href='#' class='btn btn-danger btn-sm abortFile-" + uploadFile.id +"'>").text("中止");
+    var $td_function = $('<td>').append($abort_button);
+    var $tr = $('<tr>');
+    $tr.append($td_id);
+    $tr.append($td_name);
+    $tr.append($td_progress);
+    $tr.append($td_function);
+    $(".upload-file-table").append($tr);
+    $(".abortFile-" + uploadFile.id).click(function (){
+      uploader.abortUpload(uploadFile.id);
+    });
+  }
+</script>
+</html>
